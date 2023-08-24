@@ -1,23 +1,17 @@
 package com.example.cameraapplication;
 
 import android.Manifest;
-import android.app.Activity;
-import android.content.ContentResolver;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
-import android.util.Log;
 import android.view.View;
-import android.webkit.MimeTypeMap;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.Toast;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
@@ -33,6 +27,7 @@ public class MainActivity extends AppCompatActivity {
     public static final int CAMERA_PERM_CODE = 101;
     public static final int CAMERA_REQUEST_CODE = 102;
     public static final int GALLERY_REQUEST_CODE = 105;
+    private static final int REQUEST_IMAGE_CAPTURE = 1001;
     ImageView selectedImage;
     Button cameraBtn,galleryBtn;
     Button uploadBtn;
@@ -52,9 +47,20 @@ public class MainActivity extends AppCompatActivity {
         galleryBtn = findViewById(R.id.galleryBtn);
         uploadBtn = findViewById(R.id.uploadBtn);
 
+        cameraBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Toast.makeText(MainActivity.this, "Before Ask Camera Permissions.", Toast.LENGTH_SHORT).show();
+                askCameraPermissions();
+            }
+        });
 
 
-        uploadBtn.setOnClickListener(new View.OnClickListener() {
+
+
+
+
+       /* uploadBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 Toast.makeText(MainActivity.this, "Before Upload Photo", Toast.LENGTH_SHORT).show();
@@ -63,20 +69,8 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        cameraBtn.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Toast.makeText(MainActivity.this, "Before Ask Camera Permissions.", Toast.LENGTH_SHORT).show();
-                askCameraPermissions();
-            }
-        });
-        cameraBtn.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Toast.makeText(MainActivity.this, "Before Ask Camera Permissions.", Toast.LENGTH_SHORT).show();
-                askCameraPermissions();
-            }
-        });
+
+
 
         galleryBtn.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -91,17 +85,17 @@ public class MainActivity extends AppCompatActivity {
 
 
     private void askCameraPermissions() {
-        Toast.makeText(MainActivity.this, "Ask Camera Permissions Inside Line 80", Toast.LENGTH_SHORT).show();
+        Toast.makeText(MainActivity.this, "Ask Camera Permissions Inside Line 103", Toast.LENGTH_SHORT).show();
 
         if(ContextCompat.checkSelfPermission(this,Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED){
             ActivityCompat.requestPermissions(this,new String[] {Manifest.permission.CAMERA}, CAMERA_PERM_CODE);
 
-            Toast.makeText(MainActivity.this, "Ask Camera Permissions Inside Line 83", Toast.LENGTH_SHORT).show();
+            Toast.makeText(MainActivity.this, "Ask Camera Permissions Inside Line 108", Toast.LENGTH_SHORT).show();
         }
         else {
-            Toast.makeText(MainActivity.this, "Ask Camera Permissions Inside Line 85 Before DispatchTakePictureIntent", Toast.LENGTH_SHORT).show();
+            Toast.makeText(MainActivity.this, "Ask Camera Permissions Inside Line 111 Before DispatchTakePictureIntent", Toast.LENGTH_SHORT).show();
             dispatchTakePictureIntent();
-            Toast.makeText(MainActivity.this, "Ask Camera Permissions Inside Line 87 After DispatchTakePictureIntent", Toast.LENGTH_SHORT).show();
+            Toast.makeText(MainActivity.this, "Ask Camera Permissions Inside Line 113 After DispatchTakePictureIntent", Toast.LENGTH_SHORT).show();
         }
 
     }
@@ -183,7 +177,7 @@ public class MainActivity extends AppCompatActivity {
 
         try {
 
-            /**Burdaki pathi degistirmek gerek***/
+            /**Burdaki pathi degistirmek gerek
             runnerHelper.runner(credential, cmdObj,
                     "jarRunner/src/main/images/img_unprocessed.jpg",
                     "/var/www/rug-counter/inputImages/img_unprocessed.jpeg",
@@ -191,7 +185,7 @@ public class MainActivity extends AppCompatActivity {
 
         } catch (Exception e) {
             throw new RuntimeException(e);
-        }
+        }***/
 
 
        /* final StorageReference image = storageReference.child("pictures/" + name);
@@ -214,34 +208,27 @@ public class MainActivity extends AppCompatActivity {
             }
         });*/
 
+    //}
+
+
+
+
+
+
+
+
+
+  
+
+}
+
+    private void askCameraPermissions() {
+        if(ContextCompat.checkSelfPermission(this,Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED){
+            ActivityCompat.requestPermissions(this,new String[] {Manifest.permission.CAMERA}, CAMERA_PERM_CODE);
+        }else {
+            dispatchTakePictureIntent();
+        }
     }
-
-
-
-    private String getFileExt(Uri contentUri) {
-        ContentResolver c = getContentResolver();
-        MimeTypeMap mime = MimeTypeMap.getSingleton();
-        return mime.getExtensionFromMimeType(c.getType(contentUri));
-    }
-
-
-    private File createImageFile() throws IOException {
-        // Create an image file name
-        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
-        String imageFileName = "JPEG_" + timeStamp + "_";
-//        File storageDir = getExternalFilesDir(Environment.DIRECTORY_PICTURES);
-        File storageDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES);
-        File image = File.createTempFile(
-                imageFileName,  /* prefix */
-                ".jpg",         /* suffix */
-                storageDir      /* directory */
-        );
-
-        // Save a file: path for use with ACTION_VIEW intents
-        currentPhotoPath = image.getAbsolutePath();
-        return image;
-    }
-
 
     private void dispatchTakePictureIntent() {
         Toast.makeText(MainActivity.this, "DispatchTakePictureIntent Inside 196 ", Toast.LENGTH_SHORT).show();
@@ -267,4 +254,20 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private File createImageFile() throws IOException {
+        // Create an image file name
+        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+        String imageFileName = "JPEG_" + timeStamp + "_";
+//        File storageDir = getExternalFilesDir(Environment.DIRECTORY_PICTURES);
+        File storageDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES);
+        File image = File.createTempFile(
+                imageFileName,  /* prefix */
+                ".jpg",         /* suffix */
+                storageDir      /* directory */
+        );
+
+        // Save a file: path for use with ACTION_VIEW intents
+        currentPhotoPath = image.getAbsolutePath();
+        return image;
+    }
 }
