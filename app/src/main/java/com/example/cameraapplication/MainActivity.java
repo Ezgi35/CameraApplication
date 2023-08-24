@@ -231,17 +231,17 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void dispatchTakePictureIntent() {
-        Toast.makeText(MainActivity.this, "DispatchTakePictureIntent Inside 196 ", Toast.LENGTH_SHORT).show();
+        Toast.makeText(MainActivity.this, "DispatchTakePictureIntent Inside 234 ", Toast.LENGTH_SHORT).show();
         Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
         // Ensure that there's a camera activity to handle the intent
         if (takePictureIntent.resolveActivity(getPackageManager()) != null) {
-            Toast.makeText(MainActivity.this, "DispatchTakePictureIntent Inside 200 ", Toast.LENGTH_SHORT).show();
+            Toast.makeText(MainActivity.this, "DispatchTakePictureIntent Inside 238 ", Toast.LENGTH_SHORT).show();
             // Create the File where the photo should go
             File photoFile = null;
             try {
                 photoFile = createImageFile();
             } catch (IOException ex) {
-                Toast.makeText(MainActivity.this, "DispatchTakePictureIntent Inside IOException Line  206", Toast.LENGTH_SHORT).show();
+                Toast.makeText(MainActivity.this, "DispatchTakePictureIntent Inside IOException Line  244", Toast.LENGTH_SHORT).show();
             }
             // Continue only if the File was successfully created
             if (photoFile != null) {
