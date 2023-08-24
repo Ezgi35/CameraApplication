@@ -32,6 +32,7 @@ android {
 }
 
 dependencies {
+
     implementation ("log4j:log4j:1.2.17")
     implementation ("com.jcraft:jsch:0.1.55")
     implementation("androidx.appcompat:appcompat:1.6.1")

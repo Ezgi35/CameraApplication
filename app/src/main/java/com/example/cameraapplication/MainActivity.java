@@ -35,6 +35,7 @@ public class MainActivity extends AppCompatActivity {
     public static final int GALLERY_REQUEST_CODE = 105;
     ImageView selectedImage;
     Button cameraBtn,galleryBtn;
+    Button uploadBtn;
     String currentPhotoPath;
     //StorageReference storageReference;
 
@@ -49,9 +50,26 @@ public class MainActivity extends AppCompatActivity {
         selectedImage = findViewById(R.id.displayImageView);
         cameraBtn = findViewById(R.id.cameraBtn);
         galleryBtn = findViewById(R.id.galleryBtn);
+        uploadBtn = findViewById(R.id.uploadBtn);
 
-       //storageReference = FirebaseStorage.getInstance().getReference();
 
+
+        uploadBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Toast.makeText(MainActivity.this, "Before Upload Photo", Toast.LENGTH_SHORT).show();
+
+               // uploadImageToServer();
+            }
+        });
+
+        cameraBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Toast.makeText(MainActivity.this, "Before Ask Camera Permissions.", Toast.LENGTH_SHORT).show();
+                askCameraPermissions();
+            }
+        });
         cameraBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -74,10 +92,13 @@ public class MainActivity extends AppCompatActivity {
 
     private void askCameraPermissions() {
         Toast.makeText(MainActivity.this, "Ask Camera Permissions Inside Line 80", Toast.LENGTH_SHORT).show();
+
         if(ContextCompat.checkSelfPermission(this,Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED){
             ActivityCompat.requestPermissions(this,new String[] {Manifest.permission.CAMERA}, CAMERA_PERM_CODE);
+
             Toast.makeText(MainActivity.this, "Ask Camera Permissions Inside Line 83", Toast.LENGTH_SHORT).show();
-        }else {
+        }
+        else {
             Toast.makeText(MainActivity.this, "Ask Camera Permissions Inside Line 85 Before DispatchTakePictureIntent", Toast.LENGTH_SHORT).show();
             dispatchTakePictureIntent();
             Toast.makeText(MainActivity.this, "Ask Camera Permissions Inside Line 87 After DispatchTakePictureIntent", Toast.LENGTH_SHORT).show();
