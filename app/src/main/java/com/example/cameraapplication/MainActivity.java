@@ -1,26 +1,45 @@
 package com.example.cameraapplication;
 
 import android.Manifest;
+import android.app.Activity;
+import android.app.ProgressDialog;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
 import android.provider.MediaStore;
+import android.util.Base64;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -32,9 +51,11 @@ public class MainActivity extends AppCompatActivity {
     Button cameraBtn,galleryBtn;
     Button uploadBtn;
     String currentPhotoPath;
+
+    private ProgressDialog processDialog;
     //StorageReference storageReference;
 
-
+    public String serverLink = "https://rug-counter.boutiquerugs.com/backend/imageupload.php";
 
 
     @Override
@@ -47,11 +68,16 @@ public class MainActivity extends AppCompatActivity {
         galleryBtn = findViewById(R.id.galleryBtn);
         uploadBtn = findViewById(R.id.uploadBtn);
 
+
         cameraBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 Toast.makeText(MainActivity.this, "Before Ask Camera Permissions.", Toast.LENGTH_SHORT).show();
-                askCameraPermissions();
+                try {
+                    askCameraPermissions();
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
             }
         });
 
@@ -60,15 +86,94 @@ public class MainActivity extends AppCompatActivity {
 
 
 
-       /* uploadBtn.setOnClickListener(new View.OnClickListener() {
+       uploadBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                Context context = null;
+                Activity activity = null;
                 Toast.makeText(MainActivity.this, "Before Upload Photo", Toast.LENGTH_SHORT).show();
 
-               // uploadImageToServer();
+
+                selectedImage.buildDrawingCache();
+                Bitmap bitmap = selectedImage.getDrawingCache();
+                String encodedImageData = getEncoded64ImageStringFromBitmap(bitmap);
+                uploadImageToServer(context,activity,bitmap,encodedImageData);
             }
         });
+        //async task to upload image
+        class Upload extends AsyncTask<Void,Void,String> {
+            private Context mContext;
+            private Activity mActivity;
+            private Bitmap image;
+            private String name;
 
+
+           /* public ServiceStubAsyncTask(Context context, Activity activity) {
+                mContext = context;
+                mActivity = activity;
+            }*/
+            public Upload(Context context, Activity activity,Bitmap image,String name){
+                this.image = image;
+                this.name = name;
+            }
+
+            @Override
+            protected String doInBackground(Void... params) {
+                ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+                //compress the image to jpg format
+                image.compress(Bitmap.CompressFormat.JPEG,100,byteArrayOutputStream);
+                /*
+                 * encode image to base64 so that it can be picked by saveImage.php file
+                 * */
+                String encodeImage = Base64.encodeToString(byteArrayOutputStream.toByteArray(),Base64.DEFAULT);
+
+                //generate hashMap to store encodedImage and the name
+                HashMap<String,String> detail = new HashMap<>();
+                detail.put("imageName", name);
+                detail.put("imgData", encodeImage);
+                try{
+                    //convert this HashMap to encodedUrl to send to php file
+                    String dataToSend = hashMapToUrl(detail);
+                    //make a Http request and send data to saveImage.php file
+
+                    String response = Request.post(serverLink,dataToSend);
+                    try {
+
+                        JSONObject resultJsonObject = new JSONObject(response);
+                        JSONObject console= resultJsonObject.getJSONObject("console");
+                        JSONObject decodeImageData= resultJsonObject.getJSONObject("imageData");
+                    } catch (JSONException e) {
+                        e.printStackTrace();
+                    }
+                    //return the response
+                    return response;
+
+                }catch (Exception e){
+                    e.printStackTrace();
+                    //Log.e(TAG,"ERROR  "+e);
+                    return null;
+                }
+
+
+            }
+
+
+
+            @Override
+            protected void onPostExecute(String s) {
+                //show image uploaded
+                Toast.makeText(getApplicationContext(),"Image Uploaded",Toast.LENGTH_SHORT).show();
+            }
+            @Override
+            protected void onPreExecute() {
+                super.onPreExecute();
+                processDialog = new ProgressDialog(mContext);
+                processDialog.setMessage("Please  Wait ...");
+                processDialog.setCancelable(false);
+                processDialog.show();
+            }
+
+        }
 
 
 
@@ -82,23 +187,49 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
+    private String hashMapToUrl(HashMap<String, String> params) throws UnsupportedEncodingException {
+
+            StringBuilder result = new StringBuilder();
+            boolean first = true;
+            for(Map.Entry<String, String> entry : params.entrySet()){
+                if (first)
+                    first = false;
+                else
+                    result.append("&");
+
+                result.append(URLEncoder.encode(entry.getKey(), "UTF-8"));
+                result.append("=");
+                result.append(URLEncoder.encode(entry.getValue(), "UTF-8"));
+            }
+
+            return result.toString();
+        }
 
 
-    private void askCameraPermissions() {
-        Toast.makeText(MainActivity.this, "Ask Camera Permissions Inside Line 103", Toast.LENGTH_SHORT).show();
+    private String getEncoded64ImageStringFromBitmap(Bitmap bitmap) {
+        ByteArrayOutputStream stream = new ByteArrayOutputStream();
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 70, stream);
+        byte[] byteFormat = stream.toByteArray();
 
+        // Get the Base64 string
+        String imgString = Base64.encodeToString(byteFormat, Base64.NO_WRAP);
+
+        return imgString;
+    }
+
+    private void uploadImageToServer(Context context,Activity activity,Bitmap bitmap, String encodedImageData) {
+
+        Upload(context,activity,bitmap,encodedImageData);
+    }
+
+    private void askCameraPermissions() throws IOException {
         if(ContextCompat.checkSelfPermission(this,Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED){
             ActivityCompat.requestPermissions(this,new String[] {Manifest.permission.CAMERA}, CAMERA_PERM_CODE);
-
-            Toast.makeText(MainActivity.this, "Ask Camera Permissions Inside Line 108", Toast.LENGTH_SHORT).show();
-        }
-        else {
-            Toast.makeText(MainActivity.this, "Ask Camera Permissions Inside Line 111 Before DispatchTakePictureIntent", Toast.LENGTH_SHORT).show();
+        }else {
             dispatchTakePictureIntent();
-            Toast.makeText(MainActivity.this, "Ask Camera Permissions Inside Line 113 After DispatchTakePictureIntent", Toast.LENGTH_SHORT).show();
         }
-
     }
+
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
@@ -106,7 +237,11 @@ public class MainActivity extends AppCompatActivity {
         if (requestCode == CAMERA_PERM_CODE) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 Toast.makeText(this, "onRequestPermissionsResult Inside Line 93.", Toast.LENGTH_SHORT).show();
-                dispatchTakePictureIntent();
+                try {
+                    dispatchTakePictureIntent();
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
                 Toast.makeText(this, "onRequestPermissionsResult Inside Line 95.", Toast.LENGTH_SHORT).show();
             } else {
                 Toast.makeText(this, "onRequestPermissionsResult Inside Line 97.", Toast.LENGTH_SHORT).show();
@@ -121,18 +256,17 @@ public class MainActivity extends AppCompatActivity {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == CAMERA_REQUEST_CODE) {
             if (resultCode == Activity.RESULT_OK) {
-                Toast.makeText(this, "onActivityResult Inside Line 109.", Toast.LENGTH_SHORT).show();
-                File f = new File(currentPhotoPath);
-                selectedImage.setImageURI(Uri.fromFile(f));
-                Toast.makeText(this, "onActivityResult Inside Line 112.", Toast.LENGTH_SHORT).show();
-                Log.d("tag", "ABsolute Url of Image is " + Uri.fromFile(f));
+                Toast.makeText(this, "onActivityResult Inside Line 122.", Toast.LENGTH_SHORT).show();
+                File file = new File(currentPhotoPath);
+                selectedImage.setImageURI(Uri.fromFile(file));
+                Toast.makeText(this, "onActivityResult Inside Line 125.", Toast.LENGTH_SHORT).show();
 
                 Intent mediaScanIntent = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
-                Uri contentUri = Uri.fromFile(f);
+                Uri contentUri = Uri.fromFile(file);
                 mediaScanIntent.setData(contentUri);
                 this.sendBroadcast(mediaScanIntent);
 
-                uploadImageToServer(f.getName(),contentUri);
+                //uploadImageToServer(file.getName(),contentUri.getEncodedUserInfo());
 
 
             }
@@ -143,11 +277,11 @@ public class MainActivity extends AppCompatActivity {
             if (resultCode == Activity.RESULT_OK) {
                 Uri contentUri = data.getData();
                 String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
-                String imageFileName = "JPEG_" + timeStamp + "." + getFileExt(contentUri);
-                Log.d("tag", "onActivityResult: Gallery Image Uri:  " + imageFileName);
-                selectedImage.setImageURI(contentUri);
+                //String imageFileName = "JPEG_" + timeStamp + "." + getFileExt(contentUri);
+                //Log.d("tag", "onActivityResult: Gallery Image Uri:  " + imageFileName);
+                //selectedImage.setImageURI(contentUri);
 
-                uploadImageToServer(imageFileName, contentUri);
+                //uploadImageToServer(imageFileName, contentUri);
 
 
             }
@@ -157,58 +291,6 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
-    private void uploadImageToServer(String name, Uri contentUri) {
-        Toast.makeText(this, "uploadImageToServer Inside Line 146.", Toast.LENGTH_SHORT).show();
-        CmdObj cmdObj = new CmdObj("/usr/local/share/java/opencv4/",
-                "/var/www/rug-counter/models/load_model.onnx",
-                "rugcounter.jar",
-                "/var/www/rug-counter/inputImages/img_unprocessed.jpeg",
-                "/var/www/rug-counter/outputImages/img_processed.jpeg",
-                "/usr/local/share/java/opencv4/");
-
-        Toast.makeText(this, "uploadImageToServer Inside Line 154.", Toast.LENGTH_SHORT).show();
-        AppCredential credential = new AppCredential("165.22.3.2",
-                "root",
-                "GkRcGH6FeWdvyXQW5MDC",
-                "https://rug-counter.boutiquerugs.com/",
-                "/var/www/rug-counter/",
-                "22");
-        RunnerHelper runnerHelper = new RunnerHelper();
-
-        try {
-
-            /**Burdaki pathi degistirmek gerek
-            runnerHelper.runner(credential, cmdObj,
-                    "jarRunner/src/main/images/img_unprocessed.jpg",
-                    "/var/www/rug-counter/inputImages/img_unprocessed.jpeg",
-                    "/var/www/rug-counter/outputImages/img_processed.jpeg");
-
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }***/
-
-
-       /* final StorageReference image = storageReference.child("pictures/" + name);
-        image.putFile(contentUri).addOnSuccessListener(new OnSuccessListener<UploadTask.TaskSnapshot>() {
-            @Override
-            public void onSuccess(UploadTask.TaskSnapshot taskSnapshot) {
-                image.getDownloadUrl().addOnSuccessListener(new OnSuccessListener<Uri>() {
-                    @Override
-                    public void onSuccess(Uri uri) {
-                        Log.d("tag", "onSuccess: Uploaded Image URl is " + uri.toString());
-                    }
-                });
-
-                Toast.makeText(MainActivity.this, "Image Is Uploaded.", Toast.LENGTH_SHORT).show();
-            }
-        }).addOnFailureListener(new OnFailureListener() {
-            @Override
-            public void onFailure(@NonNull Exception e) {
-                Toast.makeText(MainActivity.this, "Upload Failled.", Toast.LENGTH_SHORT).show();
-            }
-        });*/
-
-    //}
 
 
 
@@ -220,17 +302,10 @@ public class MainActivity extends AppCompatActivity {
 
   
 
-}
 
-    private void askCameraPermissions() {
-        if(ContextCompat.checkSelfPermission(this,Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED){
-            ActivityCompat.requestPermissions(this,new String[] {Manifest.permission.CAMERA}, CAMERA_PERM_CODE);
-        }else {
-            dispatchTakePictureIntent();
-        }
-    }
 
-    private void dispatchTakePictureIntent() {
+
+    private void dispatchTakePictureIntent()throws IOException {
         Toast.makeText(MainActivity.this, "DispatchTakePictureIntent Inside 234 ", Toast.LENGTH_SHORT).show();
         Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
         // Ensure that there's a camera activity to handle the intent
@@ -240,8 +315,8 @@ public class MainActivity extends AppCompatActivity {
             File photoFile = null;
             try {
                 photoFile = createImageFile();
-            } catch (IOException ex) {
-                Toast.makeText(MainActivity.this, "DispatchTakePictureIntent Inside IOException Line  244", Toast.LENGTH_SHORT).show();
+            } catch (Exception ex) {
+                Toast.makeText(MainActivity.this, "DispatchTakePictureIntent Inside IOException ", Toast.LENGTH_SHORT).show();
             }
             // Continue only if the File was successfully created
             if (photoFile != null) {
@@ -258,7 +333,6 @@ public class MainActivity extends AppCompatActivity {
         // Create an image file name
         String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
         String imageFileName = "JPEG_" + timeStamp + "_";
-//        File storageDir = getExternalFilesDir(Environment.DIRECTORY_PICTURES);
         File storageDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES);
         File image = File.createTempFile(
                 imageFileName,  /* prefix */
