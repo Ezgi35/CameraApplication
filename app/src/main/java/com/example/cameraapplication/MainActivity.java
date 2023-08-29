@@ -97,7 +97,7 @@ public class MainActivity extends AppCompatActivity {
                 selectedImage.buildDrawingCache();
                 Bitmap bitmap = selectedImage.getDrawingCache();
                 String encodedImageData = getEncoded64ImageStringFromBitmap(bitmap);
-                uploadImageToServer(context,activity,bitmap,encodedImageData);
+                uploadImageToServer(bitmap,encodedImageData);
             }
         });
         //async task to upload image
@@ -161,6 +161,12 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             protected void onPostExecute(String s) {
+
+                    super.onPostExecute(s);
+
+                    if (processDialog.isShowing()) {
+                        processDialog.dismiss();
+                    }
                 //show image uploaded
                 Toast.makeText(getApplicationContext(),"Image Uploaded",Toast.LENGTH_SHORT).show();
             }
@@ -217,9 +223,13 @@ public class MainActivity extends AppCompatActivity {
         return imgString;
     }
 
-    private void uploadImageToServer(Context context,Activity activity,Bitmap bitmap, String encodedImageData) {
+    private void uploadImageToServer(Bitmap bitmap, String encodedImageData) {
 
-        Upload(context,activity,bitmap,encodedImageData);
+        Upload(bitmap,encodedImageData);
+    }
+
+    private void Upload(Bitmap bitmap, String encodedImageData) {
+
     }
 
     private void askCameraPermissions() throws IOException {
