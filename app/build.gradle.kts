@@ -32,7 +32,9 @@ android {
 }
 
 dependencies {
-
+    implementation ("androidx.camera:camera-camera2:1.0.0")
+    implementation ("androidx.camera:camera-lifecycle:1.0.0")
+    implementation ("androidx.camera:camera-view:1.0.0-alpha26")
     implementation ("log4j:log4j:1.2.17")
     implementation ("com.jcraft:jsch:0.1.55")
     implementation("androidx.appcompat:appcompat:1.6.1")
