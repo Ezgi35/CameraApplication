@@ -320,7 +320,7 @@ public class MainActivity extends AppCompatActivity {
         Toast.makeText(MainActivity.this, "DispatchTakePictureIntent Inside 234 ", Toast.LENGTH_SHORT).show();
         Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
         // Ensure that there's a camera activity to handle the intent
-        if (takePictureIntent.resolveActivity(getPackageManager()) != null) {
+        if (takePictureIntent.resolveActivity(this.getPackageManager()) != null) {
             Toast.makeText(MainActivity.this, "DispatchTakePictureIntent Inside 238 ", Toast.LENGTH_SHORT).show();
             // Create the File where the photo should go
             File photoFile = null;
