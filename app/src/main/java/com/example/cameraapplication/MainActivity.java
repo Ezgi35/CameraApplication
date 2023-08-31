@@ -154,7 +154,7 @@ public class MainActivity extends AppCompatActivity {
                         TextView textView = (TextView) progressBarLayout.findViewById(R.id.textView);
                         ImageView imageView = progressBarLayout.findViewById(R.id.imageView);
                         textView.setText(console.toString());
-                        imageView.setImageBitmap();
+                        //imageView.setImageBitmap(decodeImageData.getJSONObject("decodeImageData"));
 
                     } catch (JSONException e) {
                         e.printStackTrace();
@@ -349,7 +349,7 @@ public class MainActivity extends AppCompatActivity {
 
 
         // Ensure that there's a camera activity to handle the intent------burda problem var
-        //if (takePictureIntent.resolveActivity(this.getPackageManager()) != null) {
+        if (takePictureIntent.resolveActivity(this.getPackageManager()) != null) {
         Toast.makeText(MainActivity.this, "DispatchTakePictureIntent Inside 238 ", Toast.LENGTH_SHORT).show();
         // Create the File where the photo should go
         File photoFile = null;
