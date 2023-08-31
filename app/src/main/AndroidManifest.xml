@@ -11,7 +11,29 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
     <uses-permission android:name="android.permission.INTERNET"/>
 
+    <queries>
+    <!-- WebView -->
+    <intent>
+        <action android:name="android.intent.action.VIEW" />
+        <category android:name="android.intent.category.BROWSABLE" />
+        <data android:scheme="http" />
+    </intent>
+    <intent>
+        <action android:name="android.intent.action.VIEW" />
+        <category android:name="android.intent.category.BROWSABLE" />
+        <data android:scheme="https" />
+    </intent>
 
+    <!-- Camera -->
+    <intent>
+        <action android:name="android.media.action.IMAGE_CAPTURE" />
+    </intent>
+
+    <!-- Gallery -->
+    <intent>
+        <action android:name="android.intent.action.GET_CONTENT" />
+    </intent>
+    </queries>
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -22,26 +44,26 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.CameraApplication"
         tools:targetApi="31">
-    <activity
-        android:name=".MainActivity"
-        android:exported="true">
-        <intent-filter>
-            <actionandroid:name="android.intent.action.MAIN"/>
-            <categoryandroid:name="android.intent.category.LAUNCHER"/>
-        </intent-filter>
-    </activity>
-    <provider
-        android:name="androidx.core.content.FileProvider"
-        android:authorities="com.example.android.fileprovider"
-        android:exported="false"
-        android:grantUriPermissions="true">
-        <meta-data
-            android:name="android.support.FILE_PROVIDER_PATHS"
-            android:resource="@xml/file_paths"></meta-data>
-    </provider>
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="com.example.android.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths">
 
-
-
+            </meta-data>
+        </provider>
+    </application>
 
 
 

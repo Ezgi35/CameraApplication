@@ -13,6 +13,8 @@ import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.MediaStore;
 import android.util.Base64;
 import android.view.SurfaceView;
@@ -26,9 +28,20 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.camera.core.CameraSelector;
+import androidx.camera.core.ImageAnalysis;
+import androidx.camera.core.ImageCapture;
+import androidx.camera.core.ImageCaptureException;
+import androidx.camera.core.Preview;
+import androidx.camera.extensions.HdrImageCaptureExtender;
+import androidx.camera.lifecycle.ProcessCameraProvider;
+import androidx.camera.view.PreviewView;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
+import androidx.lifecycle.LifecycleOwner;
+
+import com.google.common.util.concurrent.ListenableFuture;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -41,14 +54,25 @@ import java.net.URLEncoder;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
 public class MainActivity extends AppCompatActivity {
+    private Executor executor = Executors.newSingleThreadExecutor();
+    private int REQUEST_CODE_PERMISSIONS = 1001;
+    private final String[] REQUIRED_PERMISSIONS = new String[]{"android.permission.CAMERA", "android.permission.WRITE_EXTERNAL_STORAGE"};
 
     public static final int CAMERA_PERM_CODE = 101;
     public static final int CAMERA_REQUEST_CODE = 102;
     public static final int GALLERY_REQUEST_CODE = 105;
 
+    public static final int WRITE_EXTERNAL_PERM_CODE = 4;
+
+    PreviewView mPreviewView;
+    ImageView captureImage;
     ImageView selectedImage;
     Button cameraBtn,galleryBtn;
     Button uploadBtn;
@@ -77,8 +101,18 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 Toast.makeText(MainActivity.this, "Before Ask Camera Permissions.", Toast.LENGTH_SHORT).show();
+                if(!allPermissionsGranted()){
+                    try {
+                            Toast.makeText(MainActivity.this, "Before External Permissions.", Toast.LENGTH_SHORT).show();
+                            askExternalPermissions();
+                            Toast.makeText(MainActivity.this, "Before Ask Camera Permissions.", Toast.LENGTH_SHORT).show();
+                            askCameraPermissions();
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
                 try {
-                    askCameraPermissions();
+                    dispatchTakePictureIntent();
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
@@ -149,12 +183,7 @@ public class MainActivity extends AppCompatActivity {
                         JSONObject resultJsonObject = new JSONObject(response);
                         JSONObject console= resultJsonObject.getJSONObject("console");
                         JSONObject decodeImageData= resultJsonObject.getJSONObject("imageData");
-                        @SuppressLint("ResourceType") LinearLayout progressBarLayout = (LinearLayout)findViewById(R.layout.progress_bar);
-                        progressBarLayout.setTooltipText(console.toString());
-                        TextView textView = (TextView) progressBarLayout.findViewById(R.id.textView);
-                        ImageView imageView = progressBarLayout.findViewById(R.id.imageView);
-                        textView.setText(console.toString());
-                        //imageView.setImageBitmap(decodeImageData.getJSONObject("decodeImageData"));
+
 
                     } catch (JSONException e) {
                         e.printStackTrace();
@@ -171,7 +200,17 @@ public class MainActivity extends AppCompatActivity {
 
             }
 
-
+            private void readDataFromResponse(JSONObject resultJSonObject){
+                @SuppressLint("ResourceType") LinearLayout progressBarLayout = (LinearLayout) findViewById(R.layout.progress_bar);
+                TextView textView = (TextView) progressBarLayout.findViewById(R.id.textView);
+                try {
+                    textView.setText(resultJSonObject.get("console").toString());
+                } catch (JSONException e) {
+                    throw new RuntimeException(e);
+                }
+                ImageView imageView = progressBarLayout.findViewById(R.id.imageView);
+                //imageView.setImageBitmap(resultJSonObject.get("decodeImageData"));
+            }
 
             @Override
             protected void onPostExecute(String s) {
@@ -207,6 +246,94 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
+    private void startCamera() {
+
+
+            final ListenableFuture<ProcessCameraProvider> cameraProviderFuture = ProcessCameraProvider.getInstance(this);
+
+            cameraProviderFuture.addListener(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+
+                        ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
+                        bindPreview(cameraProvider);
+
+                    } catch (ExecutionException | InterruptedException e) {
+                        // No errors need to be handled for this Future.
+                        // This should never be reached.
+                    }
+                }
+            }, ContextCompat.getMainExecutor(this));
+        }
+
+
+    void bindPreview(@NonNull ProcessCameraProvider cameraProvider) {
+
+        Preview preview = new Preview.Builder()
+                .build();
+
+        CameraSelector cameraSelector = new CameraSelector.Builder()
+                .requireLensFacing(CameraSelector.LENS_FACING_BACK)
+                .build();
+
+        ImageAnalysis imageAnalysis = new ImageAnalysis.Builder()
+                .build();
+
+        ImageCapture.Builder builder = new ImageCapture.Builder();
+
+        //Vendor-Extensions (The CameraX extensions dependency in build.gradle)
+        HdrImageCaptureExtender hdrImageCaptureExtender = HdrImageCaptureExtender.create(builder);
+
+        // Query if extension is available (optional).
+        if (hdrImageCaptureExtender.isExtensionAvailable(cameraSelector)) {
+            // Enable the extension if available.
+            hdrImageCaptureExtender.enableExtension(cameraSelector);
+        }
+
+        final ImageCapture imageCapture = builder
+                .setTargetRotation(this.getWindowManager().getDefaultDisplay().getRotation())
+                .build();
+
+        preview.setSurfaceProvider(mPreviewView.getSurfaceProvider());
+
+        Camera camera = (Camera) cameraProvider.bindToLifecycle((LifecycleOwner)this, cameraSelector, preview, imageAnalysis, imageCapture);
+
+        captureImage.setOnClickListener(v -> {
+
+            SimpleDateFormat mDateFormat = new SimpleDateFormat("yyyyMMddHHmmss", Locale.US);
+            File file = new File(getBatchDirectoryName(), mDateFormat.format(new Date())+ ".jpg");
+
+            ImageCapture.OutputFileOptions outputFileOptions = new ImageCapture.OutputFileOptions.Builder(file).build();
+            imageCapture.takePicture(outputFileOptions, executor, new ImageCapture.OnImageSavedCallback () {
+                @Override
+                public void onImageSaved(@NonNull ImageCapture.OutputFileResults outputFileResults) {
+                    new Handler(Looper.getMainLooper()).post(new Runnable() {
+                        @Override
+                        public void run() {
+                            Toast.makeText(MainActivity.this, "Image Saved successfully", Toast.LENGTH_SHORT).show();
+                        }
+                    });
+                }
+                @Override
+                public void onError(@NonNull ImageCaptureException error) {
+                    error.printStackTrace();
+                }
+            });
+        });
+    }
+
+    public String getBatchDirectoryName() {
+
+        String app_folder_path = "";
+        app_folder_path = Environment.getExternalStorageDirectory().toString() + "/images";
+        File dir = new File(app_folder_path);
+        if (!dir.exists() && !dir.mkdirs()) {
+
+        }
+
+        return app_folder_path;
+    }
     private String hashMapToUrl(HashMap<String, String> params) throws UnsupportedEncodingException {
 
             StringBuilder result = new StringBuilder();
@@ -254,11 +381,17 @@ public class MainActivity extends AppCompatActivity {
     private void askCameraPermissions() throws IOException {
         if(ContextCompat.checkSelfPermission(this,Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED){
             ActivityCompat.requestPermissions(this,new String[] {Manifest.permission.CAMERA}, CAMERA_PERM_CODE);
-        }else {
-            dispatchTakePictureIntent();
         }
+
     }
 
+
+    private void askExternalPermissions() throws IOException {
+        if(ContextCompat.checkSelfPermission(this,Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED){
+            ActivityCompat.requestPermissions(this,new String[] {Manifest.permission.WRITE_EXTERNAL_STORAGE}, WRITE_EXTERNAL_PERM_CODE);
+        }
+
+    }
 
 
     @Override
@@ -279,17 +412,25 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private boolean allPermissionsGranted(){
 
+        for(String permission : REQUIRED_PERMISSIONS){
+            if(ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED){
+                return false;
+            }
+        }
+        return true;
+    }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == CAMERA_REQUEST_CODE) {
             if (resultCode == Activity.RESULT_OK) {
-                Toast.makeText(this, "onActivityResult Inside Line 122.", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "onActivityResult Inside Line 412.", Toast.LENGTH_SHORT).show();
                 File file = new File(currentPhotoPath);
                 selectedImage.setImageURI(Uri.fromFile(file));
-                Toast.makeText(this, "onActivityResult Inside Line 125.", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "onActivityResult Inside Line 415.", Toast.LENGTH_SHORT).show();
 
                 Intent mediaScanIntent = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
                 Uri contentUri = Uri.fromFile(file);
@@ -339,37 +480,36 @@ public class MainActivity extends AppCompatActivity {
         } else {
         // You don't have permission, request it or inform the user
         }
- **********************************************************/
+ *********************************************************
+ * @return*/
 
     private void dispatchTakePictureIntent()throws IOException {
-        Toast.makeText(MainActivity.this, "DispatchTakePictureIntent Inside 234 ", Toast.LENGTH_SHORT).show();
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
-            // You have permission, access the camera
+
             Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+            startActivity(takePictureIntent);
 
 
-        // Ensure that there's a camera activity to handle the intent------burda problem var
-        if (takePictureIntent.resolveActivity(this.getPackageManager()) != null) {
-        Toast.makeText(MainActivity.this, "DispatchTakePictureIntent Inside 238 ", Toast.LENGTH_SHORT).show();
-        // Create the File where the photo should go
-        File photoFile = null;
-        try {
-            photoFile = createImageFile();
-        } catch (Exception ex) {
-            Toast.makeText(MainActivity.this, "DispatchTakePictureIntent Inside IOException ", Toast.LENGTH_SHORT).show();
-        }
-        // Continue only if the File was successfully created
-        if (photoFile != null) {
-            Uri photoURI = FileProvider.getUriForFile(this,
-                    "com.example.cameraapplication.android.fileprovider",
-                    photoFile);
-            takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoURI);
-            startActivityForResult(takePictureIntent, CAMERA_REQUEST_CODE);
+            // Create the File where the photo should go
+            File photoFile = null;
+            try {
+                photoFile = createImageFile();
+            } catch (Exception ex) {
+                Toast.makeText(MainActivity.this, "DispatchTakePictureIntent Inside IOException ", Toast.LENGTH_SHORT).show();
             }
-        }else{
+            // Continue only if the File was successfully created
+            if (photoFile != null) {
+                Uri photoURI = FileProvider.getUriForFile(this,
+                        "com.example.cameraapplication.android.fileprovider",
+                        photoFile);
+                takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoURI);
+                startActivityForResult(takePictureIntent, CAMERA_REQUEST_CODE);
+            }
+        //} else {
+
             Toast.makeText(MainActivity.this, "DispatchTakePictureIntent Inside You don't have permission to access the camera ", Toast.LENGTH_SHORT).show();
         }
-    }
+
+
 
     private File createImageFile() throws IOException {
         // Create an image file name
