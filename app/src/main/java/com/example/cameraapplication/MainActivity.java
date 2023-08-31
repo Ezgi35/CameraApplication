@@ -1,6 +1,7 @@
 package com.example.cameraapplication;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.ProgressDialog;
 import android.content.Context;
@@ -18,6 +19,8 @@ import android.view.SurfaceView;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -45,7 +48,7 @@ public class MainActivity extends AppCompatActivity {
     public static final int CAMERA_PERM_CODE = 101;
     public static final int CAMERA_REQUEST_CODE = 102;
     public static final int GALLERY_REQUEST_CODE = 105;
-    private static final int REQUEST_IMAGE_CAPTURE = 1001;
+
     ImageView selectedImage;
     Button cameraBtn,galleryBtn;
     Button uploadBtn;
@@ -101,6 +104,9 @@ public class MainActivity extends AppCompatActivity {
                 uploadImageToServer(bitmap,encodedImageData);
             }
         });
+
+
+
         //async task to upload image
         class Upload extends AsyncTask<Void,Void,String> {
             private Context mContext;
@@ -143,6 +149,13 @@ public class MainActivity extends AppCompatActivity {
                         JSONObject resultJsonObject = new JSONObject(response);
                         JSONObject console= resultJsonObject.getJSONObject("console");
                         JSONObject decodeImageData= resultJsonObject.getJSONObject("imageData");
+                        @SuppressLint("ResourceType") LinearLayout progressBarLayout = (LinearLayout)findViewById(R.layout.progress_bar);
+                        progressBarLayout.setTooltipText(console.toString());
+                        TextView textView = (TextView) progressBarLayout.findViewById(R.id.textView);
+                        ImageView imageView = progressBarLayout.findViewById(R.id.imageView);
+                        textView.setText(console.toString());
+                        imageView.setImageBitmap();
+
                     } catch (JSONException e) {
                         e.printStackTrace();
                     }
@@ -233,6 +246,11 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
+    //// Check if the permission is already granted
+    //if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+    //    // If not, request the permission
+    //    ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_REQUEST_CODE);
+    //}
     private void askCameraPermissions() throws IOException {
         if(ContextCompat.checkSelfPermission(this,Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED){
             ActivityCompat.requestPermissions(this,new String[] {Manifest.permission.CAMERA}, CAMERA_PERM_CODE);
@@ -242,12 +260,13 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
+
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == CAMERA_PERM_CODE) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                Toast.makeText(this, "onRequestPermissionsResult Inside Line 93.", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "onRequestPermissionsResult Inside Line 251.", Toast.LENGTH_SHORT).show();
                 try {
                     dispatchTakePictureIntent();
                 } catch (IOException e) {
@@ -311,32 +330,44 @@ public class MainActivity extends AppCompatActivity {
 
 
 
-  
 
 
-
+/******************Check Permission Before Using the Camera:
+                    Before you access the camera in your app, always check if the permission has been granted:
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+        // You have permission, access the camera
+        } else {
+        // You don't have permission, request it or inform the user
+        }
+ **********************************************************/
 
     private void dispatchTakePictureIntent()throws IOException {
         Toast.makeText(MainActivity.this, "DispatchTakePictureIntent Inside 234 ", Toast.LENGTH_SHORT).show();
-        Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-        // Ensure that there's a camera activity to handle the intent
-        if (takePictureIntent.resolveActivity(this.getPackageManager()) != null) {
-            Toast.makeText(MainActivity.this, "DispatchTakePictureIntent Inside 238 ", Toast.LENGTH_SHORT).show();
-            // Create the File where the photo should go
-            File photoFile = null;
-            try {
-                photoFile = createImageFile();
-            } catch (Exception ex) {
-                Toast.makeText(MainActivity.this, "DispatchTakePictureIntent Inside IOException ", Toast.LENGTH_SHORT).show();
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+            // You have permission, access the camera
+            Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+
+
+        // Ensure that there's a camera activity to handle the intent------burda problem var
+        //if (takePictureIntent.resolveActivity(this.getPackageManager()) != null) {
+        Toast.makeText(MainActivity.this, "DispatchTakePictureIntent Inside 238 ", Toast.LENGTH_SHORT).show();
+        // Create the File where the photo should go
+        File photoFile = null;
+        try {
+            photoFile = createImageFile();
+        } catch (Exception ex) {
+            Toast.makeText(MainActivity.this, "DispatchTakePictureIntent Inside IOException ", Toast.LENGTH_SHORT).show();
+        }
+        // Continue only if the File was successfully created
+        if (photoFile != null) {
+            Uri photoURI = FileProvider.getUriForFile(this,
+                    "com.example.cameraapplication.android.fileprovider",
+                    photoFile);
+            takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoURI);
+            startActivityForResult(takePictureIntent, CAMERA_REQUEST_CODE);
             }
-            // Continue only if the File was successfully created
-            if (photoFile != null) {
-                Uri photoURI = FileProvider.getUriForFile(this,
-                        "com.example.cameraapplication.android.fileprovider",
-                        photoFile);
-                takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoURI);
-                startActivityForResult(takePictureIntent, CAMERA_REQUEST_CODE);
-            }
+        }else{
+            Toast.makeText(MainActivity.this, "DispatchTakePictureIntent Inside You don't have permission to access the camera ", Toast.LENGTH_SHORT).show();
         }
     }
 
