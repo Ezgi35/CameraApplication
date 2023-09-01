@@ -1,5 +1,6 @@
 package com.example.cameraapplication;
 
+
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
@@ -8,8 +9,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.hardware.Camera;
-import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Environment;
@@ -32,13 +33,13 @@ import androidx.camera.core.CameraSelector;
 import androidx.camera.core.ImageAnalysis;
 import androidx.camera.core.ImageCapture;
 import androidx.camera.core.ImageCaptureException;
+import androidx.camera.core.ImageProxy;
 import androidx.camera.core.Preview;
 import androidx.camera.extensions.HdrImageCaptureExtender;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
-import androidx.core.content.FileProvider;
 import androidx.lifecycle.LifecycleOwner;
 
 import com.google.common.util.concurrent.ListenableFuture;
@@ -51,6 +52,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
+import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
@@ -61,19 +63,18 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
 public class MainActivity extends AppCompatActivity {
-    private Executor executor = Executors.newSingleThreadExecutor();
-    private int REQUEST_CODE_PERMISSIONS = 1001;
+    private  final Executor executor = Executors.newSingleThreadExecutor();
+    private final int REQUEST_CODE_PERMISSIONS = 1001;
     private final String[] REQUIRED_PERMISSIONS = new String[]{"android.permission.CAMERA", "android.permission.WRITE_EXTERNAL_STORAGE"};
 
+    public static final int REQUEST_IMAGE_CAPTURE = 100;
     public static final int CAMERA_PERM_CODE = 101;
-    public static final int CAMERA_REQUEST_CODE = 102;
     public static final int GALLERY_REQUEST_CODE = 105;
 
     public static final int WRITE_EXTERNAL_PERM_CODE = 4;
 
-    PreviewView mPreviewView;
-    ImageView captureImage;
-    ImageView selectedImage;
+
+    ImageView imageView;
     Button cameraBtn,galleryBtn;
     Button uploadBtn;
     String currentPhotoPath;
@@ -84,14 +85,16 @@ public class MainActivity extends AppCompatActivity {
     //StorageReference storageReference;
 
     public String serverLink = "https://rug-counter.boutiquerugs.com/backend/imageupload.php";
-
+    private Object cameraExecutor;
+    PreviewView previewView;
+    ImageView captureImage;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        selectedImage = findViewById(R.id.displayImageView);
+        imageView = findViewById(R.id.displayImageView);
         cameraBtn = findViewById(R.id.cameraBtn);
         galleryBtn = findViewById(R.id.galleryBtn);
         uploadBtn = findViewById(R.id.uploadBtn);
@@ -132,8 +135,8 @@ public class MainActivity extends AppCompatActivity {
                 Toast.makeText(MainActivity.this, "Before Upload Photo", Toast.LENGTH_SHORT).show();
 
 
-                selectedImage.buildDrawingCache();
-                Bitmap bitmap = selectedImage.getDrawingCache();
+                imageView.buildDrawingCache();
+                Bitmap bitmap = imageView.getDrawingCache();
                 String encodedImageData = getEncoded64ImageStringFromBitmap(bitmap);
                 uploadImageToServer(bitmap,encodedImageData);
             }
@@ -295,7 +298,7 @@ public class MainActivity extends AppCompatActivity {
                 .setTargetRotation(this.getWindowManager().getDefaultDisplay().getRotation())
                 .build();
 
-        preview.setSurfaceProvider(mPreviewView.getSurfaceProvider());
+        preview.setSurfaceProvider(previewView.getSurfaceProvider());
 
         Camera camera = (Camera) cameraProvider.bindToLifecycle((LifecycleOwner)this, cameraSelector, preview, imageAnalysis, imageCapture);
 
@@ -425,7 +428,20 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == CAMERA_REQUEST_CODE) {
+
+        if(requestCode == REQUEST_IMAGE_CAPTURE && resultCode== RESULT_OK){
+            Bundle extras = data.getExtras();
+            Bitmap imageBitmap = (Bitmap) extras.get("data");
+
+            imageView.setImageBitmap(imageBitmap);
+
+
+
+
+
+
+        }
+        /*if (requestCode == CAMERA_REQUEST_CODE) {
             if (resultCode == Activity.RESULT_OK) {
                 Toast.makeText(this, "onActivityResult Inside Line 412.", Toast.LENGTH_SHORT).show();
                 File file = new File(currentPhotoPath);
@@ -457,7 +473,7 @@ public class MainActivity extends AppCompatActivity {
 
             }
 
-        }
+        }*/
 
 
     }
@@ -483,33 +499,64 @@ public class MainActivity extends AppCompatActivity {
  *********************************************************
  * @return*/
 
+
+
+    public void onClick() {
+       /* ImageCapture.OutputFileOptions outputFileOptions =
+                new ImageCapture.OutputFileOptions.Builder(new File(...)).build();
+                cameraBtn.takePicture(outputFileOptions, cameraExecutor,
+                new ImageCapture.OnImageSavedCallback() {
+                    @Override
+                    public void onImageSaved(ImageCapture.OutputFileResults outputFileResults) {
+                        // insert your code here.
+                        File photoFile = null;
+                        try {
+                            photoFile = createImageFile();
+                        } catch (Exception ex) {
+                            Toast.makeText(MainActivity.this, "DispatchTakePictureIntent Inside IOException ", Toast.LENGTH_SHORT).show();
+                        }
+                        // Continue only if the File was successfully created
+                        if (photoFile != null) {
+                            Uri photoURI = FileProvider.getUriForFile(this,
+                                    "com.example.cameraapplication.android.fileprovider",
+                                    photoFile);
+                            takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoURI);
+                            startActivityForResult(takePictureIntent, CAMERA_REQUEST_CODE);
+                    }
+                    @Override
+                    public void onError(ImageCaptureException error) {
+                        // insert your code here.
+                    }
+                }
+        );*/
+    }
     private void dispatchTakePictureIntent()throws IOException {
 
             Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
             startActivity(takePictureIntent);
+             onActivityResult(REQUEST_IMAGE_CAPTURE,-1,takePictureIntent);
+ }
 
 
-            // Create the File where the photo should go
-            File photoFile = null;
-            try {
-                photoFile = createImageFile();
-            } catch (Exception ex) {
-                Toast.makeText(MainActivity.this, "DispatchTakePictureIntent Inside IOException ", Toast.LENGTH_SHORT).show();
-            }
-            // Continue only if the File was successfully created
-            if (photoFile != null) {
-                Uri photoURI = FileProvider.getUriForFile(this,
-                        "com.example.cameraapplication.android.fileprovider",
-                        photoFile);
-                takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoURI);
-                startActivityForResult(takePictureIntent, CAMERA_REQUEST_CODE);
-            }
-        //} else {
-
-            Toast.makeText(MainActivity.this, "DispatchTakePictureIntent Inside You don't have permission to access the camera ", Toast.LENGTH_SHORT).show();
-        }
 
 
+    public void takePicture(
+            @NonNull ImageCapture.OutputFileOptions outputFileOptions,
+            @NonNull Executor executor,
+            @NonNull ImageCapture.OnImageSavedCallback imageSavedCallback
+    ){
+        Toast.makeText(this, "takePicture Inside ", Toast.LENGTH_SHORT).show();
+    }
+
+    private Bitmap imageProxyToBitmap(ImageProxy image)
+    {
+        ImageProxy.PlaneProxy planeProxy = image.getPlanes()[0];
+        ByteBuffer buffer = planeProxy.getBuffer();
+        byte[] bytes = new byte[buffer.remaining()];
+        buffer.get(bytes);
+
+        return BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
+    }
 
     private File createImageFile() throws IOException {
         // Create an image file name
